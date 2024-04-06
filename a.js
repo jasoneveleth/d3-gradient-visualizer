@@ -39,7 +39,8 @@ const v = {x: 2, y: 2}
 const h = {x: 1, y: 2}
 const initialData = [v, add(v, h)].map(coord2screen)
 
-const screen_origin2 = {x: 3*axis_width/4, y: height/2}
+const gap = 50
+const screen_origin2 = {x: 3*axis_width/2 + gap, y: height/2}
 
 //################### axes ####################
 
@@ -85,6 +86,44 @@ svg.append("rect")
   .style("fill", "none")
   .style("stroke", "black")
   .style("stroke-width", 1)
+
+// ################### axes2 ####################
+
+// Create axis generators
+const xAxis2 = d3.axisBottom(xScale)
+const yAxis2 = d3.axisLeft(yScale)
+
+// Append axes to SVG
+const xaxis_group2 = svg.append("g")
+  .attr("transform", "translate(" + (screen_origin2.x - axis_width/2 + gap) + "," + screen_origin2.y + ")") // Translate x-axis to the center of the SVG vertically
+  .call(xAxis)
+xaxis_group2
+  .selectAll("line,path")
+  .style("stroke", "#c0c") // Change axis line color to grey
+xaxis_group2
+  .selectAll("text")
+  .style("fill", "#c0c"); // Change axis label color to grey
+
+const yaxis_group2 = svg.append("g")
+  .attr("transform", "translate(" + (screen_origin2.x + gap) + ",0)") // Translate y-axis to the center of the SVG horizontally
+  .call(yAxis)
+yaxis_group2
+  .selectAll("line,path")
+  .style("stroke", "#c0c") // Change axis line color to grey
+yaxis_group2
+  .selectAll("text")
+  .style("fill", "#c0c"); // Change axis label color to grey
+// create a rectangle around the axes
+svg.append("rect")
+  .attr("x", screen_origin2.x - axis_width/2 + gap)
+  .attr("y", 0)
+  .attr("width", axis_width)
+  .attr("height", height)
+  .style("fill", "none")
+  .style("stroke", "black")
+  .style("stroke-width", 1)
+
+// ################### line ####################
 
 
 // Create initial line
