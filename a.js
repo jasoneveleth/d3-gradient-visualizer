@@ -1,8 +1,10 @@
 // Define SVG dimensions
-const width = 600
+const width = 1200
 const height = 400
 
-const scale = width/20
+const axis_width = 400
+
+const scale = 600/14 // 600 pixels per 14 units
 
 function add(a, b) {
   return {x: a.x + b.x, y: a.y + b.y}
@@ -18,12 +20,12 @@ function mul(a, b) {
 
 function coord2screen(vec) {
   const flip = {x:vec.x, y:-vec.y}
-  const a = add(screen_origin, mul(flip, scale))
+  const a = add(screen_origin1, mul(flip, scale))
   return a
 }
 
 function screen2coord(vec) {
-  const a = mul(add(vec, mul(screen_origin, -1)), 1/scale)
+  const a = mul(add(vec, mul(screen_origin1, -1)), 1/scale)
   const c = {x: a.x, y: -a.y}
   return c
 }
@@ -32,17 +34,19 @@ function screen2coord(vec) {
 const svg = d3.select("svg")
 
 // Initialize line data with default slope
-const screen_origin = {x: width/2, y: height/2}
+const screen_origin1 = {x: axis_width/2, y: height/2}
 const v = {x: 2, y: 2}
-const h = {x: 1, y: 3}
+const h = {x: 1, y: 2}
 const initialData = [v, add(v, h)].map(coord2screen)
+
+const screen_origin2 = {x: 3*axis_width/4, y: height/2}
 
 //################### axes ####################
 
 // Define scales
 const xScale = d3.scaleLinear()
-  .domain([-(width/scale)/2, (width/scale)/2]) // Adjust domain as needed
-  .range([0, width])
+  .domain([-(axis_width/scale)/2, (axis_width/scale)/2]) // Adjust domain as needed
+  .range([0, axis_width])
 
 const yScale = d3.scaleLinear()
   .domain([-(height/scale)/2, (height/scale)/2]) // Adjust domain as needed
@@ -54,7 +58,7 @@ const yAxis = d3.axisLeft(yScale)
 
 // Append axes to SVG
 const xaxis_group = svg.append("g")
-  .attr("transform", "translate(0," + screen_origin.y + ")") // Translate x-axis to the center of the SVG vertically
+  .attr("transform", "translate(0," + screen_origin1.y + ")") // Translate x-axis to the center of the SVG vertically
   .call(xAxis)
 xaxis_group
   .selectAll("line,path")
@@ -64,7 +68,7 @@ xaxis_group
   .style("fill", "#ccc"); // Change axis label color to grey
 
 const yaxis_group = svg.append("g")
-  .attr("transform", "translate(" + screen_origin.x + ",0)") // Translate y-axis to the center of the SVG horizontally
+  .attr("transform", "translate(" + screen_origin1.x + ",0)") // Translate y-axis to the center of the SVG horizontally
   .call(yAxis)
 yaxis_group
   .selectAll("line,path")
@@ -72,7 +76,15 @@ yaxis_group
 yaxis_group
   .selectAll("text")
   .style("fill", "#ccc"); // Change axis label color to grey
-
+// create a rectangle around the axes
+svg.append("rect")
+  .attr("x", 0)
+  .attr("y", 0)
+  .attr("width", axis_width)
+  .attr("height", height)
+  .style("fill", "none")
+  .style("stroke", "black")
+  .style("stroke-width", 1)
 
 
 // Create initial line
@@ -86,15 +98,6 @@ linepath = svg.append("path")
   .attr("stroke", "steelblue")
   .attr("stroke-width", 2)
   .attr("d", line)
-svg.append("rect")
-  .attr("x", 0)
-  .attr("y", 0)
-  .attr("width", width)
-  .attr("height", height)
-  .style("fill", "none")
-  .style("stroke", "black")
-  .style("stroke-width", 1)
-
 // Create a draggable point at the end of the line
 const endPoint = svg.append("circle")
   .attr("cx", initialData[1].x)
