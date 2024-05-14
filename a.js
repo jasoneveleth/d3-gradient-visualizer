@@ -1,18 +1,18 @@
 // Define SVG dimensions
-const width = 1200
-const height = 400
+const width = 800
+const height = 375
 
-const axis_width = 400
+const axis_width = 375
 
 const scale = 600/14 // 600 pixels per 14 units
 
 
 // Initialize line data with default slope
 const screen_origin1 = {x: axis_width/2, y: height/2}
-const v = {x: 2, y: 2}
-const h = {x: 1, y: 2}
+const v_init = {x: 2, y: 2}
+const h_init = {x: 1, y: 2}
 
-const gap = 50
+const gap = 25
 const screen_origin2 = {x: 3*axis_width/2 + gap, y: height/2}
 function add(a, b) {
   return {x: a.x + b.x, y: a.y + b.y}
@@ -30,6 +30,22 @@ function matmul(A, b) {
   return {x: A[0].x*b.x + A[1].x*b.y, y: A[0].y*b.x + A[1].y*b.y}
 }
 
+// Either computs b^T A if A is a matrix
+// or dot product if A is a vector
+function matmul2(b, A) {
+  if (Array.isArray(A)) {
+	return {x: A[0].x*b.x + A[0].y*b.y, 
+			y: A[1].x*b.x + A[1].y*b.y}
+  } else {
+	return b.x*A.x + b.y*A.y
+  }
+}
+
+function transpose(A) {
+  return [{x: A[0].x, y: A[1].x}, 
+	      {x: A[0].y, y: A[1].y}]
+}
+
 function coord2screen(vec, origin=screen_origin1) {
   const flip = {x:vec.x, y:-vec.y}
   const a = add(origin, mul(flip, scale))
@@ -43,7 +59,7 @@ function screen2coord(vec) {
 }
 
 // Create SVG element
-const svg = d3.select("svg")
+const svg = d3.select("#graphssvg")
 
 // define arrow markers for vectors
 svg.append("defs").append("marker")
@@ -56,7 +72,7 @@ svg.append("defs").append("marker")
     .attr("orient", "auto")
   .append("path")
     .attr("d", "M0,-5L10,0L0,5")
-    .attr("fill", "steelblue");
+    .attr("fill", "black");
 
 //################### axes ####################
 
@@ -141,17 +157,19 @@ svg.append("rect")
 
 // ################### line ####################
 
-const initialData = [v, add(v, h)].map(x => coord2screen(x))
+const initialData = [v_init, add(v_init, h_init)].map(x => coord2screen(x))
 
 // Create initial line
 const line = d3.line()
   .x(d => d.x)
   .y(d => d.y)
 
+let cache_v_h = add(v_init, h_init)
+
 linepath = svg.append("path")
   .datum(initialData)
   .attr("fill", "none")
-  .attr("stroke", "steelblue")
+  .attr("stroke", "black")
   .attr("stroke-width", 2)
   .attr("d", line)
   .attr("marker-end", "url(#arrowhead)") // Use the arrowhead marker
@@ -166,34 +184,52 @@ const endPoint = svg.append("circle")
   .call(d3.drag()
     .on("drag", function(event) {
 	  const vec = screen2coord(p(event.x, event.y))
-	  updateLine(vec)
-	  updateLine2(vec)
+	  cache_v_h = vec
+	  redraw()
     })
   )
 
 // Function to update line and draggable point position
-function updateLine(pt) {
-  const newData = [v, pt].map(x => coord2screen(x))
+function updateAxis1(pt) {
+  const newData = [v_init, pt].map(x => coord2screen(x))
   linepath.datum(newData).attr("d", line)
   endPoint.attr("cx", coord2screen(pt).x).attr("cy", coord2screen(pt).y)
 }
 
 // ################### line2 ####################
+const A = [{x: 1, y: 0}, {x: 0, y: 0.5}]
+const b = {x: 0, y: -3}
 
-function f(v) {
-  return {x: v.x, y: 0.5*v.y}
+const linear_f = (v) => {
+  return add(matmul(A, v), b)
+}
+const linear_Df = (v) => {
+  return A
+}
+// note: we approximate scalars as (x, 0)
+const quadratic_f = (v) => {
+  return {x: matmul2(v, matmul(A, v)) - (-b.y), y: 0}
+}
+const quadratic_Df = (v) => {
+  const should_be_row_vec = add(matmul2(v, A), matmul2(v, transpose(A)))
+  return [{x: should_be_row_vec.x, y: 0}, {x: 0, y: should_be_row_vec.y}]
+}
+const sine_f = (v) => {
+  return {x: Math.sin(v.x), y: Math.sin(v.y)}
+}
+const sine_Df = (v) => {
+  return [{x: Math.cos(v.x), y: 0}, {x: 0, y: Math.cos(v.y)}]
 }
 
-function Df(v) {
-	return [{x: 1, y: 0}, {x: 0, y: 0.5}]
-}
+let f = linear_f
+let Df = linear_Df
 
 function line2_func(v, h) {
-	return [f(v), add(f(v), matmul(Df(v), h))]
+  return [f(v), add(f(v), matmul(Df(v), h))]
 }
 
-const initialData2 = line2_func(v, h).map(x => coord2screen(x, screen_origin2))
-const f_image_data = coord2screen(f(add(v, h)), screen_origin2)
+const initialData2 = line2_func(v_init, h_init).map(x => coord2screen(x, screen_origin2))
+const f_image_data = coord2screen(f(add(v_init, h_init)), screen_origin2)
 
 // Create initial line
 const line2 = d3.line()
@@ -203,7 +239,7 @@ const line2 = d3.line()
 linepath2 = svg.append("path")
   .datum(initialData2)
   .attr("fill", "none")
-  .attr("stroke", "steelblue")
+  .attr("stroke", "black")
   .attr("stroke-width", 2)
   .attr("d", line)
   .attr("marker-end", "url(#arrowhead)") // Use the arrowhead marker
@@ -213,21 +249,71 @@ const endPoint2 = svg.append("circle")
   .attr("cy", initialData2[1].y)
   .attr("r", 3)
   .attr("fill", "orange")
-const f_image = svg.append("circle")
-  .attr("cx", f_image_data.x)
-  .attr("cy", f_image_data.y)
-  .attr("r", 3)
-  .attr("fill", "purple")
+// we want to modify the 'transform' attribute of the path, but it applies to the whole group
+const f_image = svg.append("g")
+  .attr("transform", "translate(" + f_image_data.x + "," + f_image_data.y + ")") // Translate to the point's position
+f_image.append("path")
+  .attr("d", "M-5,-5L5,5M5,-5L-5,5") // Define the path for the X mark
+  .attr("stroke", "red")
+  .attr("stroke-width", 2);
 
 // Function to update line and draggable point position
-function updateLine2(pt) {
-  const h = add(pt, mul(v, -1))
-  const newData = line2_func(v, h).map(x => coord2screen(x, screen_origin2))
-  const actual = f(add(v, h))
-  const screen_actual = coord2screen(actual, screen_origin2)
+function updateAxis2(pt) {
+  const h = add(pt, mul(v_init, -1))
+  const newData = line2_func(v_init, h).map(x => coord2screen(x, screen_origin2))
+  const screen_actual = coord2screen(f(add(v_init, h)), screen_origin2)
 
   linepath2.datum(newData).attr("d", line)
   endPoint2.attr("cx", newData[1].x).attr("cy", newData[1].y)
-  f_image.attr("cx", screen_actual.x).attr("cy", screen_actual.y)
+  f_image.attr("transform", "translate(" + screen_actual.x + "," + screen_actual.y + ")")
 }
+
+funcs_options = ["linear: Av + b", "quadratic: v^TAv - b", "sine: sin(v)"]
+
+d3.select("#selectButton")
+  .selectAll('myOptions')
+	.data(funcs_options)
+  .enter()
+	.append('option')
+  .text(function (d) { return d; }) // text showed in the menu
+  .attr("value", function (d) { return d[0]; }) // corresponding value returned by the button
+
+d3.select("#selectButton").on("change", function(d) {
+	var selectedOption = d3.select(this).property("value")
+	if (selectedOption == "l") {
+	  f = linear_f
+	  Df = linear_Df
+	} else if (selectedOption == "q") {
+	  f = quadratic_f
+	  Df = quadratic_Df
+	} else if (selectedOption == "s") {
+	  f = sine_f
+	  Df = sine_Df
+	}
+})
+
+d3.select("#resetButton").on("click", function(d) {
+  cache_v_h = add(v_init, h_init)
+  redraw()
+})
+
+function redraw() {
+  const h = add(cache_v_h, mul(v_init, -1))
+  const v = v_init
+  const lin_approx = add(f(v), matmul(Df(v), h))
+  r = (x) => x.toFixed(2)
+  updateAxis1(add(v, h))
+  updateAxis2(add(v, h))
+  document.getElementById("vals").innerHTML = `<pre>
+v = (${v.x}, ${v.y})
+h = (${r(h.x)}, ${r(h.y)})
+f(v) = (${r(f(v).x)}, ${r(f(v).y)})
+Df(v) = ((${r(Df(v)[0].x)}, ${r(Df(v)[0].y)})
+         (${r(Df(v)[1].x)}, ${r(Df(v)[1].y)}))
+f(v + h) = (${r(f(add(v, h)).x)}, ${r(f(add(v, h)).y)})
+f(v) Df(v)h = (${r(lin_approx.x)}, ${r(lin_approx.y)})
+</pre>`
+}
+
+redraw()
 
