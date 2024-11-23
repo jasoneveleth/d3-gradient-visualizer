@@ -204,28 +204,34 @@ const linear_f = (v) => {
   return add(matmul(A, v), b)
 }
 const linear_Df = (v) => {
-  return A
+  return h => {
+	return matmul(A, h)
+  }
 }
 // note: we approximate scalars as (x, 0)
 const quadratic_f = (v) => {
   return {x: matmul2(v, matmul(A, v)) - (-b.y), y: 0}
 }
 const quadratic_Df = (v) => {
-  const should_be_row_vec = add(matmul2(v, A), matmul2(v, transpose(A)))
-  return [{x: should_be_row_vec.x, y: 0}, {x: 0, y: should_be_row_vec.y}]
+  return h => {
+	const should_be_row_vec = add(matmul2(v, A), matmul2(v, transpose(A)))
+	return {x: matmul2(h, should_be_row_vec), y: 0}
+  }
 }
 const sine_f = (v) => {
   return {x: Math.sin(v.x), y: Math.sin(v.y)}
 }
 const sine_Df = (v) => {
-  return [{x: Math.cos(v.x), y: 0}, {x: 0, y: Math.cos(v.y)}]
+  return h => {
+	return matmul([{x: Math.cos(v.x), y: 0}, {x: 0, y: Math.cos(v.y)}], h)
+  }
 }
 
 let f = linear_f
 let Df = linear_Df
 
 function line2_func(v, h) {
-  return [f(v), add(f(v), matmul(Df(v), h))]
+  return [f(v), add(f(v), Df(v)(h))]
 }
 
 const initialData2 = line2_func(v_init, h_init).map(x => coord2screen(x, screen_origin2))
@@ -300,18 +306,26 @@ d3.select("#resetButton").on("click", function(d) {
 function redraw() {
   const h = add(cache_v_h, mul(v_init, -1))
   const v = v_init
-  const lin_approx = add(f(v), matmul(Df(v), h))
+  const lin_approx = add(f(v), Df(v)(h))
   r = (x) => x.toFixed(2)
   updateAxis1(add(v, h))
   updateAxis2(add(v, h))
+
+  let df_str
+  if (f == quadratic_f) {
+	df_str = `Df(v) = (${r(Df(v)({x: 1, y: 0}).x)}, ${r(Df(v)({x: 0, y: 1}).x)})`
+  } else {
+	console.log(Df(v)({x: 1, y: 0}))
+	df_str = `Df(v) = ((${r(Df(v)({x: 1, y: 0}).x)}, ${r(Df(v)({x: 0, y: 1}).x)})
+         (${r(Df(v)({x: 1, y: 0}).y)}, ${r(Df(v)({x: 0, y: 1}).y)}))`
+  }
   document.getElementById("vals").innerHTML = `<pre>
 v = (${v.x}, ${v.y})
 h = (${r(h.x)}, ${r(h.y)})
 f(v) = (${r(f(v).x)}, ${r(f(v).y)})
-Df(v) = ((${r(Df(v)[0].x)}, ${r(Df(v)[0].y)})
-         (${r(Df(v)[1].x)}, ${r(Df(v)[1].y)}))
+${df_str}
 f(v + h) = (${r(f(add(v, h)).x)}, ${r(f(add(v, h)).y)})
-f(v) Df(v)h = (${r(lin_approx.x)}, ${r(lin_approx.y)})
+f(v) + Df(v)h = (${r(lin_approx.x)}, ${r(lin_approx.y)})
 </pre>`
 }
 
